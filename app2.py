@@ -8,7 +8,7 @@ import joblib
 # ==============================
 st.set_page_config(
     page_title="Breast Cancer 3-Year OS Prediction",
-    page_icon="🧬",
+    page_icon="🎗️",
     layout="centered"
 )
 
@@ -74,6 +74,12 @@ st.markdown(
         text-align: center;
         margin-top: 40px;
     }
+    
+    /* Small tweaks for radio button alignment */
+    div.row-widget.stRadio > div{
+        flex-direction: row;
+        align-items: stretch;
+    }
     </style>
     """,
     unsafe_allow_html=True
@@ -82,9 +88,14 @@ st.markdown(
 # ==============================
 # Load Model
 # ==============================
+# 注意：请确保目录下有 'svm_model.pkl' 文件
 @st.cache_resource
 def load_model():
-    return joblib.load("svm_model.pkl")
+    try:
+        return joblib.load("svm_model.pkl")
+    except FileNotFoundError:
+        st.error("⚠️ Model file 'svm_model.pkl' not found. Please upload it.")
+        return None
 
 model = load_model()
 
@@ -94,10 +105,10 @@ model = load_model()
 st.markdown(
     """
     <div class="main-title">
-    Breast Cancer 3-Year Overall Survival Prediction
+    🎗️ Breast Cancer 3-Year OS Prediction
     </div>
     <div class="subtitle">
-    An SVM-based Clinical Decision Support Tool
+    🤖 An SVM-based Clinical Decision Support Tool
     </div>
     """,
     unsafe_allow_html=True
@@ -109,20 +120,13 @@ st.markdown(
 st.markdown(
     """
     <div class="card">
-    <b>Introduction</b><br><br>
+    <b>ℹ️ Introduction</b><br><br>
     This web-based calculator was developed using an optimized 
     <b>Support Vector Machine (SVM)</b> model to estimate the 
     <b>individualized 3-year overall survival (OS) probability</b> 
     for breast cancer patients.<br><br>
-
-    By integrating key clinicopathological parameters, this tool may assist 
-    clinicians in identifying high-risk patients who could benefit from 
-    intensified adjuvant therapies and closer surveillance.<br><br>
-
-    <i>
-    This calculator is intended for risk assessment and decision support only 
-    and should not replace professional clinical judgment.
-    </i>
+    
+    <i>This tool integrates clinicopathological parameters to assist in identifying high-risk patients.</i>
     </div>
     """,
     unsafe_allow_html=True
@@ -131,10 +135,11 @@ st.markdown(
 # ==============================
 # Sidebar Inputs
 # ==============================
-st.sidebar.header("Patient Clinical Parameters")
+st.sidebar.header("📋 Patient Clinical Parameters")
 
+# 1. Age
 age = st.sidebar.selectbox(
-    "Age",
+    "📅 Age Group",
     options=[
         (1, "18–39 years"),
         (2, "40–69 years"),
@@ -143,8 +148,9 @@ age = st.sidebar.selectbox(
     format_func=lambda x: x[1]
 )[0]
 
+# 2. Degree
 degree = st.sidebar.selectbox(
-    "Degree of Differentiation",
+    "🔬 Differentiation Grade",
     options=[
         (1, "Grade I (Well differentiated)"),
         (2, "Grade II (Moderately differentiated)"),
@@ -153,28 +159,32 @@ degree = st.sidebar.selectbox(
     format_func=lambda x: x[1]
 )[0]
 
+# 3. T Stage
 t_stage = st.sidebar.selectbox(
-    "T Stage",
+    "📏 T Stage (Tumor Size)",
     options=[
         (1, "T1 (≤20 mm)"),
         (2, "T2 (20–50 mm)"),
         (3, "T3 (>50 mm)"),
-        (4, "T4 (Skin or chest wall invasion)")
+        (4, "T4 (Invasion)")
     ],
     format_func=lambda x: x[1]
 )[0]
 
+# 4. Lymph Node (Updated as requested)
 ln_status = st.sidebar.radio(
-    "Lymph Node Status",
+    "🦠 Lymph Node Metastasis",
     options=[
-        (0, "Negative"),
-        (1, "Positive")
+        (0, "No"),
+        (1, "Yes")
     ],
-    format_func=lambda x: x[1]
+    format_func=lambda x: x[1],
+    horizontal=True  # 横向排列，更像开关
 )[0]
 
+# 5. Molecular
 molecular = st.sidebar.selectbox(
-    "Molecular Subtype",
+    "🧬 Molecular Subtype",
     options=[
         (1, "Luminal A"),
         (2, "Luminal B"),
@@ -184,8 +194,9 @@ molecular = st.sidebar.selectbox(
     format_func=lambda x: x[1]
 )[0]
 
+# 6. NLR
 nlr = st.sidebar.number_input(
-    "Neutrophil-to-Lymphocyte Ratio (NLR)",
+    "🩸 NLR (Neutrophil-to-Lymphocyte Ratio)",
     min_value=0.1,
     max_value=50.0,
     value=2.5,
@@ -196,11 +207,10 @@ nlr = st.sidebar.number_input(
 # Prediction
 # ==============================
 st.markdown("<br>", unsafe_allow_html=True)
-predict = st.button("🔍 Predict 3-Year Survival Risk", use_container_width=True)
+predict = st.button("🔍 Predict Survival Risk", use_container_width=True)
 
-if predict:
-
-    # DataFrame with feature names (NO warnings)
+if predict and model:
+    # DataFrame with feature names
     X = pd.DataFrame(
         [[age, degree, t_stage, ln_status, molecular, nlr]],
         columns=[
@@ -213,46 +223,49 @@ if predict:
         ]
     )
 
-    prob = model.predict_proba(X)[0, 1]
-    prob_percent = prob * 100
+    try:
+        prob = model.predict_proba(X)[0, 1]
+        prob_percent = prob * 100
 
-    st.markdown(
-        f"""
-        <div class="card">
-        <b>Predicted Probability of Poor Prognosis (3-Year OS)</b>
-        <div class="metric-value">{prob_percent:.1f}%</div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    if prob >= 0.5:
         st.markdown(
-            """
-            <div class="risk-high">
-            <b>High-Risk Group (Poor Prognosis)</b><br><br>
-            Patients in this group may benefit from:
-            <ul>
-                <li>Intensified adjuvant therapy</li>
-                <li>Closer clinical surveillance</li>
-                <li>More rigorous follow-up schedules</li>
-            </ul>
-            Multidisciplinary evaluation is strongly recommended.
+            f"""
+            <div class="card">
+            <b>📈 Predicted Probability of Poor Prognosis (3-Year OS)</b>
+            <div class="metric-value">{prob_percent:.1f}%</div>
             </div>
             """,
             unsafe_allow_html=True
         )
-    else:
-        st.markdown(
-            """
-            <div class="risk-low">
-            <b>Low-Risk Group (Favorable Prognosis)</b><br><br>
-            Patients in this group generally have a favorable prognosis 
-            under standard treatment and follow-up strategies.
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+
+        if prob >= 0.5:
+            st.markdown(
+                """
+                <div class="risk-high">
+                <b>🚨 High-Risk Group (Poor Prognosis)</b><br><br>
+                Patients in this group may benefit from:
+                <ul>
+                    <li>💊 Intensified adjuvant therapy</li>
+                    <li>🏥 Closer clinical surveillance</li>
+                    <li>📆 More rigorous follow-up schedules</li>
+                </ul>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                """
+                <div class="risk-low">
+                <b>✅ Low-Risk Group (Favorable Prognosis)</b><br><br>
+                Patients in this group generally have a favorable prognosis 
+                under standard treatment.
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+            
+    except Exception as e:
+        st.error(f"Prediction Error: {e}")
 
 # ==============================
 # Model Interpretation
@@ -260,17 +273,16 @@ if predict:
 st.markdown(
     """
     <div class="card">
-    <b>Model Interpretation Summary</b><br><br>
-    The SVM model identified the following factors as being associated with poorer outcomes:
+    <b>📊 Model Interpretation Summary</b><br><br>
+    The SVM model identified the following risk factors:
     <ul>
-        <li>Older age</li>
-        <li>Higher degree of poor differentiation</li>
-        <li>Advanced T stage</li>
-        <li>Positive lymph node status</li>
-        <li>Triple-negative molecular subtype</li>
-        <li>Elevated neutrophil-to-lymphocyte ratio (NLR)</li>
+        <li>👵 Older age</li>
+        <li>🔬 Poor differentiation (Grade III)</li>
+        <li>📏 Advanced T stage</li>
+        <li>🦠 Positive lymph node status</li>
+        <li>🧬 Triple-negative subtype</li>
+        <li>🩸 Elevated NLR</li>
     </ul>
-    These findings are consistent with established clinical evidence.
     </div>
     """,
     unsafe_allow_html=True
